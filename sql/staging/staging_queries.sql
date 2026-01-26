@@ -1,4 +1,3 @@
--- stg_queries.sql
 -- Purpose:
 -- Normalize Snowflake query history for cost governance analysis.
 -- One row per query.
