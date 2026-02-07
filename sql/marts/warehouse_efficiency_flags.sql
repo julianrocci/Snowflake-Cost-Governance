@@ -1,6 +1,5 @@
--- Flags warehouses with inefficient compute usage patterns
--- based on utilization, idle time, and wake-up behavior.
--- This model is used to prioritize cost optimization actions.
+-- Enhanced warehouse efficiency metrics with weighted utilization
+-- and estimated idle cost savings potential.
 
 WITH warehouse_metrics AS (
 
@@ -15,7 +14,9 @@ WITH warehouse_metrics AS (
         SUM(billed_seconds)                                AS total_billed_seconds,
         SUM(idle_seconds)                                  AS total_idle_seconds,
 
-        AVG(utilization_ratio)                             AS avg_utilization_ratio,
+        -- Weighted utilization (more accurate than simple average)
+        SUM(billed_seconds - idle_seconds)
+            / NULLIF(SUM(billed_seconds), 0)               AS weighted_utilization_ratio,
 
         SUM(CASE WHEN is_wakeup = 1 THEN 1 ELSE 0 END)     AS wakeup_count
 
@@ -33,12 +34,12 @@ SELECT
     active_days,
     total_billed_seconds,
     total_idle_seconds,
-    avg_utilization_ratio,
+    weighted_utilization_ratio,
     wakeup_count,
 
-    -- Efficiency flags
+    -- Optimization signals
     CASE
-        WHEN avg_utilization_ratio < 0.30 THEN 1
+        WHEN weighted_utilization_ratio < 0.30 THEN 1
         ELSE 0
     END AS low_utilization_flag,
 
@@ -47,11 +48,7 @@ SELECT
         ELSE 0
     END AS high_wakeup_flag,
 
-    CASE
-        WHEN avg_utilization_ratio < 0.30
-          OR wakeup_count > active_days * 3
-        THEN 1
-        ELSE 0
-    END AS optimization_candidate_flag
+    -- Conservative idle savings estimate (50% of idle)
+    ROUND(total_idle_seconds * 0.5) AS potential_idle_savings_seconds
 
 FROM warehouse_metrics;
