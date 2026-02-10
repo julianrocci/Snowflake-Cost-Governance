@@ -1,9 +1,27 @@
-resource "snowflake_warehouse" "analytics_wh" {
-  name              = var.warehouse_name
-  warehouse_size    = var.warehouse_size
-  auto_suspend      = var.auto_suspend_seconds
-  auto_resume       = true
+resource "snowflake_warehouse" "wh_analytics" {
+  name               = "WH_ANALYTICS"
+  warehouse_size     = "SMALL"
+  auto_suspend       = 60
+  auto_resume        = true
   initially_suspended = true
 
-  tags = var.tags
+  tags = {
+    workload    = "analytics"
+    environment = "prod"
+    team        = "data"
+  }
+}
+
+resource "snowflake_warehouse" "wh_batch" {
+  name               = "WH_BATCH"
+  warehouse_size     = "MEDIUM"
+  auto_suspend       = 300
+  auto_resume        = true
+  initially_suspended = true
+
+  tags = {
+    workload    = "batch"
+    environment = "prod"
+    team        = "data"
+  }
 }
