@@ -1,5 +1,5 @@
 -- Generate Snowflake warehouse cost optimization recommendations
--- based on utilization, idle time, wakeup behavior, and potential multi-cluster scaling.
+-- based on utilization, idle time, wakeup behavior, and multi-cluster activity.
 
 SELECT
     warehouse_name,
@@ -12,12 +12,14 @@ SELECT
     total_billed_seconds,
     total_active_query_seconds,
 
+    avg_cluster_count,
+    max_cluster_count_seen,
+    is_multi_cluster_active,
+
     CASE
 
-        -- Potential multi-cluster over-scaling
-        WHEN weighted_utilization_ratio > 0.60
-             AND idle_ratio < 0.20
-             AND total_billed_seconds > total_active_query_seconds * 1.5
+        -- Multi-cluster scaling review (direct signal from Snowflake)
+        WHEN is_multi_cluster_active = TRUE
             THEN 'REVIEW_MULTI_CLUSTER_CONFIGURATION'
 
         -- Very low utilization: warehouse likely oversized
@@ -37,10 +39,8 @@ SELECT
 
     CASE
 
-        WHEN weighted_utilization_ratio > 0.60
-             AND idle_ratio < 0.20
-             AND total_billed_seconds > total_active_query_seconds * 1.5
-            THEN 'High utilization with disproportionately high billed time. Possible excessive multi-cluster scaling.'
+        WHEN is_multi_cluster_active = TRUE
+            THEN 'Warehouse frequently scales beyond a single cluster. Review max_cluster_count and concurrency patterns.'
 
         WHEN weighted_utilization_ratio < 0.30
             THEN 'Warehouse spends most of its billed time underutilized. Consider downsizing.'
