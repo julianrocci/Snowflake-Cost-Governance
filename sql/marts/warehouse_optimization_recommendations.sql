@@ -1,5 +1,6 @@
--- Generate Snowflake warehouse cost optimization recommendations
--- including priority, estimated savings (seconds, credits, dollars)
+-- Snowflake Warehouse Cost Optimization Engine
+-- Includes recommendations, financial impact estimation,
+-- projections, and global ranking.
 
 WITH base AS (
 
@@ -84,48 +85,58 @@ recommendations AS (
         END AS estimated_savings_seconds
 
     FROM base
+),
+
+financials AS (
+
+    SELECT
+        *,
+
+        --------------------------------------------------------------------
+        -- Estimated Savings (Credits)
+        --------------------------------------------------------------------
+        ROUND(
+            estimated_savings_seconds / 3600 * credits_per_hour,
+            2
+        ) AS estimated_savings_credits,
+
+        --------------------------------------------------------------------
+        -- Estimated Savings (Dollars)
+        -- Assumes $3 per credit (adjustable)
+        --------------------------------------------------------------------
+        ROUND(
+            estimated_savings_seconds / 3600 * credits_per_hour * 3,
+            2
+        ) AS estimated_savings_dollars
+
+    FROM recommendations
+),
+
+final AS (
+
+    SELECT
+        *,
+
+        --------------------------------------------------------------------
+        -- Monthly & Annual Projections
+        --------------------------------------------------------------------
+        ROUND(estimated_savings_dollars * 30, 2)
+            AS projected_monthly_savings,
+
+        ROUND(estimated_savings_dollars * 365, 2)
+            AS projected_annual_savings,
+
+        --------------------------------------------------------------------
+        -- Global Ranking by Financial Impact
+        --------------------------------------------------------------------
+        RANK() OVER (
+            ORDER BY estimated_savings_dollars DESC
+        ) AS savings_rank
+
+    FROM financials
+
+    WHERE optimization_action IS NOT NULL
 )
 
-SELECT
-    warehouse_name,
-    workload,
-    usage_date,
-
-    warehouse_size,
-    credits_per_hour,
-
-    weighted_utilization_ratio,
-    idle_ratio,
-    wakeup_ratio,
-
-    total_billed_seconds,
-    total_active_query_seconds,
-    total_idle_seconds,
-
-    avg_cluster_count,
-    max_cluster_count_seen,
-    is_multi_cluster_active,
-
-    optimization_action,
-    optimization_priority,
-
-    estimated_savings_seconds,
-
-    --------------------------------------------------------------------
-    -- Estimated Savings (Credits)
-    --------------------------------------------------------------------
-    ROUND(
-        estimated_savings_seconds / 3600 * credits_per_hour,
-        2
-    ) AS estimated_savings_credits,
-
-    --------------------------------------------------------------------
-    -- Estimated Savings (Dollars)
-    -- Assumes $3 per credit (adjustable)
-    --------------------------------------------------------------------
-    ROUND(
-        estimated_savings_seconds / 3600 * credits_per_hour * 3,
-        2
-    ) AS estimated_savings_dollars
-
-FROM recommendations;
+SELECT *
+FROM final;
