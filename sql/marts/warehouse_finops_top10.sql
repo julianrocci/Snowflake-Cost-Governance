@@ -1,5 +1,5 @@
 -- Top 10 most costly warehouses per month
--- For management dashboard and alerting
+-- With alert flag
 
 WITH monthly_summary AS (
     SELECT *
@@ -13,7 +13,15 @@ FROM (
         ROW_NUMBER() OVER (
             PARTITION BY usage_month
             ORDER BY estimated_monthly_waste_usd DESC
-        ) AS rank_per_month
+        ) AS rank_per_month,
+
+        CASE
+            WHEN estimated_monthly_waste_usd > 1000
+                 AND avg_monthly_waste_ratio > 0.30
+            THEN TRUE
+            ELSE FALSE
+        END AS requires_immediate_action
+
     FROM monthly_summary
 ) ranked
 WHERE rank_per_month <= 10
