@@ -1,166 +1,136 @@
-WITH warehouse_base AS (
+-- Warehouse Optimization Model
+-- Includes optimization recommendation, waste estimation,
+-- and primary waste driver classification
+
+WITH base AS (
 
     SELECT
         warehouse_name,
+        workload,
+        usage_date,
 
-        /* Core activity metrics */
-        SUM(total_elapsed_time) / 1000                           AS total_query_seconds,
-        SUM(credits_used_compute)                                 AS total_credits_used,
-        SUM(credits_used_cloud_services)                          AS total_cloud_credits,
+        weighted_utilization_ratio,
+        idle_ratio,
+        wakeup_ratio,
 
-        /* Time metrics */
-        SUM(active_time)                                          AS total_active_query_seconds,
-        SUM(billed_time)                                          AS total_billed_seconds
-
-    FROM snowflake.account_usage.warehouse_load_history
-    WHERE start_time >= DATEADD(day, -30, CURRENT_TIMESTAMP())
-    GROUP BY warehouse_name
-),
-
-warehouse_ratios AS (
-
-    SELECT
-        warehouse_name,
-
-        total_query_seconds,
-        total_credits_used,
-        total_cloud_credits,
-        total_active_query_seconds,
         total_billed_seconds,
+        total_active_query_seconds,
 
-        /* Utilization ratios */
+        estimated_savings_dollars,
+        projected_monthly_savings,
+        projected_annual_savings
 
-        CASE 
-            WHEN total_billed_seconds > 0
-                THEN total_active_query_seconds / total_billed_seconds
-            ELSE 0
-        END AS weighted_utilization_ratio,
-
-        CASE
-            WHEN total_billed_seconds > 0
-                THEN (total_billed_seconds - total_active_query_seconds)
-                     / total_billed_seconds
-            ELSE 0
-        END AS idle_ratio
-
-    FROM warehouse_base
+    FROM {{ ref('warehouse_optimization_recommendation') }}
 ),
 
-utilization_trend AS (
+optimization_logic AS (
 
     SELECT
         warehouse_name,
+        workload,
+        usage_date,
 
-        AVG(CASE 
-                WHEN start_time >= DATEADD(day, -7, CURRENT_TIMESTAMP())
-                THEN avg_running
-            END) AS avg_util_7d,
+        weighted_utilization_ratio,
+        idle_ratio,
+        wakeup_ratio,
 
-        AVG(avg_running) AS avg_util_30d
+        total_billed_seconds,
+        total_active_query_seconds,
 
-    FROM snowflake.account_usage.warehouse_load_history
-    WHERE start_time >= DATEADD(day, -30, CURRENT_TIMESTAMP())
-    GROUP BY warehouse_name
-),
+        estimated_savings_dollars,
+        projected_monthly_savings,
+        projected_annual_savings,
 
-final_model AS (
-
-    SELECT
-        r.warehouse_name,
-
-        r.total_query_seconds,
-        r.total_credits_used,
-        r.total_cloud_credits,
-        r.total_active_query_seconds,
-        r.total_billed_seconds,
-
-        r.weighted_utilization_ratio,
-        r.idle_ratio,
-
-        t.avg_util_7d,
-        t.avg_util_30d,
-
-        /* Utilization trend ratio */
-        CASE
-            WHEN t.avg_util_30d > 0
-                THEN t.avg_util_7d / t.avg_util_30d
-            ELSE 1
-        END AS utilization_trend_ratio,
-
-        /* Recommendation logic */
+        /* ===============================
+           Optimization Action
+           =============================== */
 
         CASE
 
-            WHEN r.weighted_utilization_ratio < 0.30
+            WHEN weighted_utilization_ratio < 0.30
                 THEN 'DOWNSIZE_WAREHOUSE'
 
-            WHEN r.idle_ratio > 0.50
+            WHEN idle_ratio > 0.50
                 THEN 'REDUCE_AUTO_SUSPEND_TIMEOUT'
 
-            WHEN r.weighted_utilization_ratio > 0.60
-                 AND r.idle_ratio < 0.20
-                 AND r.total_billed_seconds > r.total_active_query_seconds * 1.5
+            WHEN weighted_utilization_ratio > 0.60
+                 AND idle_ratio < 0.20
+                 AND total_billed_seconds > total_active_query_seconds * 1.5
                 THEN 'REVIEW_MULTI_CLUSTER_CONFIGURATION'
-
-            WHEN t.avg_util_30d > 0
-                 AND (t.avg_util_7d / t.avg_util_30d) < 0.85
-                THEN 'UTILIZATION_DROP_DETECTED'
 
             ELSE 'HEALTHY'
 
         END AS optimization_action,
 
-        /* =============================
-           Estimated Waste Calculation
-           ============================= */
+        /* ===============================
+           Estimated Waste (Seconds)
+           =============================== */
 
         CASE
 
-            /* Potential downsizing opportunity */
-            WHEN r.weighted_utilization_ratio < 0.30
-                THEN r.total_billed_seconds * 0.30
+            WHEN weighted_utilization_ratio < 0.30
+                THEN total_billed_seconds * 0.30
 
-            /* Excessive idle time */
-            WHEN r.idle_ratio > 0.50
-                THEN r.total_billed_seconds * 0.20
+            WHEN idle_ratio > 0.50
+                THEN total_billed_seconds * 0.20
 
-            /* Multi-cluster overprovisioning */
-            WHEN r.weighted_utilization_ratio > 0.60
-                 AND r.idle_ratio < 0.20
-                 AND r.total_billed_seconds > r.total_active_query_seconds * 1.5
-                THEN (r.total_billed_seconds - r.total_active_query_seconds)
+            WHEN weighted_utilization_ratio > 0.60
+                 AND idle_ratio < 0.20
+                 AND total_billed_seconds > total_active_query_seconds * 1.5
+                THEN (total_billed_seconds - total_active_query_seconds)
 
             ELSE 0
 
-        END AS estimated_waste_seconds,
+        END AS estimated_waste_seconds
 
-        /* Waste ratio */
+    FROM base
+),
+
+final_model AS (
+
+    SELECT
+        *,
+
+        /* ===============================
+           Estimated Waste Ratio
+           =============================== */
+
         CASE
-            WHEN r.total_billed_seconds > 0
-                THEN
+            WHEN total_billed_seconds > 0
+                THEN estimated_waste_seconds / total_billed_seconds
+            ELSE 0
+        END AS estimated_waste_ratio,
+
+        /* ===============================
+           Primary Waste Driver
+           =============================== */
+
+        CASE
+
+            WHEN idle_ratio > 0.50
+                THEN 'IDLE_DOMINANT'
+
+            WHEN weighted_utilization_ratio < 0.30
+                THEN 'UNDERUTILIZED'
+
+            WHEN total_billed_seconds > total_active_query_seconds * 1.5
+                 AND idle_ratio < 0.20
+                THEN 'MULTICLUSTER_OVERPROVISIONED'
+
+            WHEN (
                     CASE
-
-                        WHEN r.weighted_utilization_ratio < 0.30
-                            THEN 0.30
-
-                        WHEN r.idle_ratio > 0.50
-                            THEN 0.20
-
-                        WHEN r.weighted_utilization_ratio > 0.60
-                             AND r.idle_ratio < 0.20
-                             AND r.total_billed_seconds > r.total_active_query_seconds * 1.5
-                            THEN (r.total_billed_seconds - r.total_active_query_seconds)
-                                 / r.total_billed_seconds
-
+                        WHEN total_billed_seconds > 0
+                            THEN estimated_waste_seconds / total_billed_seconds
                         ELSE 0
-
                     END
-            ELSE 0
-        END AS estimated_waste_ratio
+                 ) > 0.25
+                THEN 'MIXED'
 
-    FROM warehouse_ratios r
-    LEFT JOIN utilization_trend t
-        ON r.warehouse_name = t.warehouse_name
+            ELSE 'HEALTHY'
+
+        END AS primary_waste_driver
+
+    FROM optimization_logic
 )
 
 SELECT *
