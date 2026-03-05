@@ -9,6 +9,8 @@ Data Spilling: Identify queries spilling to disk (Local/Remote) to trigger wareh
 
 Long Running Queries: Monitor and catch "runaway queries" exceeding expected execution time limits.
 
+Performance : Identify the clustering depth of a table and alert with threshold
+
 Business Logic: Notify the sales team if a single transaction exceeds a certain amount.
 
 Should use a dedicated WH for Alerts
