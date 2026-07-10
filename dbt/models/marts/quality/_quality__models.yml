@@ -3,18 +3,44 @@ version: 2
 models:
   - name: fct_quality_monitoring
     description: "Unified data quality monitoring combining freshness gaps and technical failures"
+    config:
+      contract:
+        enforced: true
     columns:
       - name: event_timestamp
+        data_type: timestamp_ntz
+        constraints:
+          - type: not_null
         data_tests:
           - not_null
       - name: category
+        data_type: varchar
+        constraints:
+          - type: not_null
         data_tests:
           - not_null
           - accepted_values:
               values: ['DATA_FLOW', 'TECHNICAL_ERROR']
+      - name: alert_level
+        data_type: varchar
+      - name: full_table_name
+        data_type: varchar
+      - name: total_rows_inserted
+        data_type: number
+      - name: n_queries
+        data_type: number
+      - name: event_description
+        data_type: varchar
+      - name: error_message
+        data_type: varchar
       - name: is_alert
+        data_type: number
         description: "1 if the event requires attention, 0 if healthy"
+        constraints:
+          - type: not_null
         data_tests:
           - not_null
           - accepted_values:
               values: [0, 1]
+      - name: dbt_updated_at
+        data_type: timestamp_ntz

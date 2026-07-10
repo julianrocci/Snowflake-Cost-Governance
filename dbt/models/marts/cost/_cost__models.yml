@@ -1,33 +1,54 @@
 version: 2
 
 models:
-  # Main Efficiency Mart
   - name: rpt_warehouse_efficiency
     description: "Final mart for warehouse efficiency and FinOps ROI. Provides a high-level view of wasted costs per warehouse."
+    config:
+      contract:
+        enforced: true
     columns:
       - name: warehouse_name
+        data_type: varchar
         description: "The primary key: name of the Snowflake warehouse."
-        tests:
+        constraints:
+          - type: not_null
+        data_tests:
           - unique
           - not_null
-
+      - name: total_compute_credits
+        data_type: float
+      - name: total_compute_cost_usd
+        data_type: float
+      - name: total_billed_seconds
+        data_type: float
+      - name: total_work_seconds
+        data_type: float
+      - name: total_queries_executed
+        data_type: number
+      - name: efficiency_percentage
+        data_type: float
+        description: "Percentage of time the warehouse was actually executing queries vs being idle."
+        constraints:
+          - type: not_null
+      - name: wasted_cost_usd
+        data_type: float
+        description: "Estimated cost lost to idle time."
       - name: environment
+        data_type: varchar
         description: "Classification of the warehouse environment (PROD, UAT, DEV)."
-        tests:
+        constraints:
+          - type: not_null
+        data_tests:
           - accepted_values:
               values: ['PROD', 'UAT', 'DEV']
           - not_null
+      - name: domain
+        data_type: varchar
 
-      - name: efficiency_percentage
-        description: "Percentage of time the warehouse was actually executing queries vs being idle."
-        tests:
-          - not_null
-
-  # Detailed Behavior Mart
   - name: rpt_warehouse_behavior_analysis
     description: "Detailed mart for behavioral analysis. Tracks wakeups and isolated queries by user and date."
     columns:
       - name: warehouse_name
         description: "Name of the warehouse."
-        tests:
+        data_tests:
           - not_null
