@@ -1,0 +1,22 @@
+version: 2
+
+groups:
+  - name: data_engineering
+    owner:
+      name: "Data Engineering Team"
+      email: "data-eng@company.ch"
+
+  - name: finance_analytics
+    owner:
+      name: "Finance Analytics Team"
+      email: "finance-analytics@company.ch"
+
+  - name: marketing_analytics
+    owner:
+      name: "Marketing Analytics Team"
+      email: "marketing-analytics@company.ch"
+
+  - name: platform_reliability
+    owner:
+      name: "Platform Reliability Team"
+      email: "platform@company.ch"

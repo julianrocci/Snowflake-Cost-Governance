@@ -21,14 +21,27 @@ models:
   cost_governance_dbt:
     staging:
       +materialized: view
+      +access: private
+      +group: data_engineering
       +grants:
         select: ['ROLE_DATA_ENG']
     intermediate:
       +materialized: "{{ 'view' if target.name == 'dev' else 'ephemeral' }}"
+      +access: private
+      +group: data_engineering
       +grants:
         select: ['ROLE_DATA_ENG']
     marts:
       +materialized: table
+      +access: public
       +tags: ['daily']
       +grants:
         select: "{{ ['ROLE_DATA_ENG', 'ROLE_ANALYST', 'ROLE_REPORTING'] if target.name == 'prod' else ['ROLE_DATA_ENG'] }}"
+      cost:
+        +group: finance_analytics
+      performance:
+        +group: platform_reliability
+      marketing:
+        +group: marketing_analytics
+      quality:
+        +group: platform_reliability
