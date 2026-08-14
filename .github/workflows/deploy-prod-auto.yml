@@ -7,8 +7,10 @@ on:
 
 env:
   SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-  SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
-  SNOWFLAKE_PRIVATE_KEY: ${{ secrets.SNOWFLAKE_PRIVATE_KEY }}
+  SNOWFLAKE_DCM_USER: ${{ secrets.SNOWFLAKE_DCM_USER }}
+  SNOWFLAKE_DCM_PRIVATE_KEY: ${{ secrets.SNOWFLAKE_DCM_PRIVATE_KEY }}
+  SNOWFLAKE_DBT_USER: ${{ secrets.SNOWFLAKE_DBT_USER }}
+  SNOWFLAKE_DBT_PRIVATE_KEY: ${{ secrets.SNOWFLAKE_DBT_PRIVATE_KEY }}
 
 jobs:
   deploy-prod:
@@ -25,8 +27,10 @@ jobs:
       - name: Install tools
         run: pip install "snowflake-cli>=3.16" "dbt-snowflake~=1.9.0"
 
-      - name: Write private key to file
-        run: echo "$SNOWFLAKE_PRIVATE_KEY" > /tmp/rsa_key.p8
+      - name: Write service-account keys to files
+        run: |
+          echo "$SNOWFLAKE_DCM_PRIVATE_KEY" > /tmp/dcm_rsa_key.p8
+          echo "$SNOWFLAKE_DBT_PRIVATE_KEY" > /tmp/dbt_rsa_key.p8
 
       - name: Configure Snow CLI
         run: |
@@ -34,9 +38,9 @@ jobs:
           cat > ~/.snowflake/config.toml << EOF
           [connections.default]
           account = "$SNOWFLAKE_ACCOUNT"
-          user = "$SNOWFLAKE_USER"
+          user = "$SNOWFLAKE_DCM_USER"
           authenticator = "SNOWFLAKE_JWT"
-          private_key_file = "/tmp/rsa_key.p8"
+          private_key_file = "/tmp/dcm_rsa_key.p8"
           role = "DCM_DEPLOYER"
           warehouse = "TRANSFORM_WH"
           EOF
@@ -63,9 +67,9 @@ jobs:
               prod:
                 type: snowflake
                 account: $SNOWFLAKE_ACCOUNT
-                user: $SNOWFLAKE_USER
-                private_key_path: /tmp/rsa_key.p8
-                role: ACCOUNTADMIN
+                user: $SNOWFLAKE_DBT_USER
+                private_key_path: /tmp/dbt_rsa_key.p8
+                role: TRANSFORM_ROLE
                 database: MGMT_DB
                 warehouse: TRANSFORM_WH
                 schema: COST_GOVERNANCE

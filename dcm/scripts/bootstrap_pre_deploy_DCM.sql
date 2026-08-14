@@ -57,11 +57,12 @@ BEGIN
             ' TO ROLE DCM_DEPLOYER COPY CURRENT GRANTS';
     END IF;
 
-    -- Step 8: CI/CD service user (idempotent — created once, receives both roles)
+    -- Step 8: CI/CD service identities.
+    -- Authentication material (RSA public keys/OAuth) is configured outside this
+    -- project. ACCOUNTADMIN is intentionally not granted to either routine identity.
     EXECUTE IMMEDIATE 'CREATE USER IF NOT EXISTS SVC_CICD_DEPLOY DEFAULT_ROLE = DCM_DEPLOYER';
     EXECUTE IMMEDIATE 'GRANT ROLE DCM_DEPLOYER TO USER SVC_CICD_DEPLOY';
-    EXECUTE IMMEDIATE 'GRANT ROLE SYSADMIN TO USER SVC_CICD_DEPLOY';
-    EXECUTE IMMEDIATE 'GRANT ROLE ACCOUNTADMIN TO USER SVC_CICD_DEPLOY';
+    EXECUTE IMMEDIATE 'CREATE USER IF NOT EXISTS SVC_DBT_TRANSFORM';
 
     -- Step 9: User Management schema + audit table (only when MGMT_DB exists = PROD bootstrapped)
     IF (mgmt_db = 'MGMT_DB') THEN

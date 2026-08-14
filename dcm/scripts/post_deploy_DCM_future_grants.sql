@@ -79,6 +79,10 @@ BEGIN
     EXECUTE IMMEDIATE 'GRANT SELECT, INSERT, UPDATE, DELETE ON FUTURE TABLES IN SCHEMA ' || mgmt_db || '.ACCESS_GOVERNANCE TO ROLE TRANSFORM_ROLE' || env_suffix;
     EXECUTE IMMEDIATE 'GRANT SELECT ON FUTURE VIEWS IN SCHEMA ' || mgmt_db || '.ACCESS_GOVERNANCE TO ROLE TRANSFORM_ROLE' || env_suffix;
 
+    -- dbt runs under its own service identity. The environment-specific role is
+    -- created by DCM before this procedure executes.
+    EXECUTE IMMEDIATE 'GRANT ROLE TRANSFORM_ROLE' || env_suffix || ' TO USER SVC_DBT_TRANSFORM';
+
     RETURN 'SUCCESS: Future grants applied for ' || UPPER(ENV) || ' environment.';
 END;
 

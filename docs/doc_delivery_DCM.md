@@ -13,6 +13,16 @@ This script will :
 
 
 From now on, DCM_DEPLOYER role should do the delivery
+
+### CI/CD identities
+
+The pipeline separates infrastructure and transformation responsibilities:
+
+* `SVC_CICD_DEPLOY` uses `DCM_DEPLOYER` to deploy DCM definitions and apply future grants.
+* `SVC_DBT_TRANSFORM` uses the environment-specific `TRANSFORM_ROLE` to run dbt.
+
+`ACCOUNTADMIN` is reserved for the one-time bootstrap procedure and is not granted to routine CI/CD service users. Authentication keys are managed outside this repository through CI/CD secrets.
+
 **Step 1 — Analyze (definition validation)**
 ```bash
 snow dcm raw-analyze MGMT_DB_DEV.DCM.COST_GOVERNANCE_DCM_DEV \
