@@ -16,22 +16,22 @@ models:
           - unique
           - not_null
       - name: total_compute_credits
-        data_type: float
+        data_type: number
       - name: total_compute_cost_usd
-        data_type: float
+        data_type: number
       - name: total_billed_seconds
-        data_type: float
+        data_type: number
       - name: total_work_seconds
-        data_type: float
+        data_type: number
       - name: total_queries_executed
         data_type: number
       - name: efficiency_percentage
-        data_type: float
+        data_type: number
         description: "Percentage of time the warehouse was actually executing queries vs being idle."
         constraints:
           - type: not_null
       - name: wasted_cost_usd
-        data_type: float
+        data_type: number
         description: "Estimated cost lost to idle time."
       - name: environment
         data_type: varchar
