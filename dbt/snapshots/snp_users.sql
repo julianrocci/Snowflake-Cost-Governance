@@ -11,6 +11,6 @@
     )
 }}
 
-select * from {{ source('app_data', 'raw_users') }}
+select * from {{ source('app_data_source', 'raw_users') }}
 
 {% endsnapshot %}
